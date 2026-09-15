@@ -197,3 +197,34 @@ journalctl -u dnsmasq -f
 
 - **Capability Minime**: All'interno dei container viene concessa esplicitamente `CAP_NET_ADMIN` (e `CAP_NET_RAW`), necessaria per modificare lo stato del link e l'indirizzo hardware (`ip link set dev eth0 address ...`), mantenendo i privilegi non necessari bloccati.
 - **Rete Isolata**: Il bridge `br0` separa completamente il traffico dei container dalla LAN fisica dell'host, esponendoli verso l'esterno solo tramite NAT/Masquerading.
+
+---
+
+## 🤖 CI/CD con GitHub Actions
+
+Il workflow [`.github/workflows/build.yml`](file://.github/workflows/build.yml) automatizza completamente la compilazione del rootfs:
+
+1. **Trigger Automatico**:
+   - Ad ogni `push` o `pull_request` sui branch `main` / `master`.
+   - Ad ogni tag `v*` (creazione automatica di una **GitHub Release** con i file `.tar.xz` e checksum `.sha256`).
+   - Trigger manuale via interfaccia web tramite `workflow_dispatch`.
+
+2. **Funzionalità del Workflow**:
+   - Installazione di Nix via `DeterminateSystems/nix-installer-action`.
+   - Caching intelligente dei build artifacts Nix tramite `magic-nix-cache-action`.
+   - Verifica di conformità del flake con `nix flake check`.
+   - Compilazione del tarball e calcolo automatico del checksum `sha256`.
+   - Caricamento dell'artifact `nixos-mac-rotator-rootfs` (disponibile per il download per 30 giorni).
+
+3. **Deploy su Host Debian senza Nix**:
+   Se l'host Debian di produzione non ha Nix installato, è possibile scaricare direttamente l'archivio compilato da GitHub Actions o dalla sezione Release ed eseguire il deploy:
+   ```bash
+   # Scarica il tarball dalla release di GitHub
+   wget https://github.com/<owner>/<repo>/releases/latest/download/nixos-mac-rotator-rootfs.tar.xz
+
+   # Esegui il deploy indicando il tarball scaricato
+   make spawn-nspawn ID=node-01 TARBALL=./nixos-mac-rotator-rootfs.tar.xz
+   # oppure per LXC:
+   make spawn-lxc ID=node-01 TARBALL=./nixos-mac-rotator-rootfs.tar.xz
+   ```
+

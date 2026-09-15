@@ -1,0 +1,78 @@
+name: Build and Package NixOS Container
+
+on:
+  push:
+    branches:
+      - master
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Rootfs Tarball (x86_64-linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v16
+        with:
+          extra-conf: |
+            experimental-features = nix-command flakes
+
+      - name: Enable Magic Nix Cache (GitHub Actions Cache)
+        uses: DeterminateSystems/magic-nix-cache-action@v13
+
+      - name: Verify Nix Flake
+        run: |
+          nix flake check --all-systems
+
+      - name: Build Container Tarball
+        run: |
+          nix build .#packages.x86_64-linux.tarball
+
+      - name: Prepare Distribution Artifacts & Checksums
+        run: |
+          mkdir -p dist
+          TAR_PATH=$(find -L result \( -name "*.tar.xz" -o -name "*.tar.gz" -o -name "*.tar" \) | head -n1)
+          if [ -z "$TAR_PATH" ] || [ ! -f "$TAR_PATH" ]; then
+            echo "ERROR: Rootfs tarball not found in build outputs" >&2
+            exit 1
+          fi
+
+          echo "Found build output: $TAR_PATH"
+          cp "$TAR_PATH" dist/nixos-mac-rotator-rootfs.tar.xz
+
+          cd dist
+          sha256sum nixos-mac-rotator-rootfs.tar.xz > nixos-mac-rotator-rootfs.tar.xz.sha256
+          echo "Generated SHA256:"
+          cat nixos-mac-rotator-rootfs.tar.xz.sha256
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nixos-mac-rotator-rootfs
+          path: dist/*
+          retention-days: 30
+
+      - name: Create GitHub Release and Upload Assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/nixos-mac-rotator-rootfs.tar.xz
+            dist/nixos-mac-rotator-rootfs.tar.xz.sha256
+          generate_release_notes: true
+          draft: false
+          prerelease: false

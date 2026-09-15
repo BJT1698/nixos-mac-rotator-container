@@ -11,7 +11,8 @@ ID ?= node-01
 
 # Path helpers
 NIX_OUTPUT_DIR := result
-TARBALL_PATH = $(shell find -L $(NIX_OUTPUT_DIR) \( -name "*.tar.xz" -o -name "*.tar.gz" -o -name "*.tar" \) 2>/dev/null | head -n1)
+TARBALL ?= $(shell find -L $(NIX_OUTPUT_DIR) dist . \( -name "*.tar.xz" -o -name "*.tar.gz" -o -name "*.tar" \) 2>/dev/null | head -n1)
+TARBALL_PATH := $(TARBALL)
 
 .PHONY: help build host-setup spawn-nspawn spawn-lxc stop-nspawn stop-lxc destroy-nspawn destroy-lxc status-nspawn status-lxc test-rotation-nspawn test-rotation-lxc clean
 
