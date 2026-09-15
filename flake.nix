@@ -16,8 +16,6 @@
         modules = [
           # Standard NixOS LXC container base profile
           "${nixpkgs}/nixos/modules/virtualisation/lxc-container.nix"
-          # Standard NixOS tarball generator module
-          "${nixpkgs}/nixos/modules/installer/cd-dvd/tarball.nix"
           # Automated MAC rotator module
           ./modules/network-mac-rotator.nix
           {
@@ -46,12 +44,43 @@
             # Container optimization settings
             boot.isContainer = true;
             system.stateVersion = "24.11";
-
-            # Configure Tarball generation
-            tarball.fileName = "nixos-container-rootfs";
           }
         ];
       };
+
+      # Custom rootfs builder using standard closureInfo to avoid fragile installer module paths
+      mkTarball = system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          containerConfig = mkContainerConfig system;
+          toplevel = containerConfig.config.system.build.toplevel;
+          closure = pkgs.closureInfo { rootPaths = [ toplevel ]; };
+        in
+        pkgs.runCommand "nixos-container-rootfs" {
+          nativeBuildInputs = [ pkgs.xz pkgs.gnutar ];
+        } ''
+          mkdir -p rootfs/nix/store
+          mkdir -p rootfs/bin rootfs/run rootfs/etc rootfs/tmp rootfs/proc rootfs/sys rootfs/dev rootfs/root
+          chmod 1777 rootfs/tmp
+
+          echo "Populating Nix store closure..."
+          while IFS= read -r path; do
+            cp -a "$path" rootfs/nix/store/
+          done < "${closure}/store-paths"
+
+          # Basic Nix database structure
+          mkdir -p rootfs/nix/var/nix/db
+          mkdir -p rootfs/nix/var/nix/gcroots
+
+          # Standard NixOS init symlinks
+          ln -s ${toplevel}/init rootfs/init
+          ln -s ${toplevel} rootfs/run/current-system
+
+          echo "Compressing rootfs tarball..."
+          mkdir -p $out
+          tar --numeric-owner -c -C rootfs . | xz -T0 -6 > $out/nixos-container-rootfs.tar.xz
+          echo "Tarball creation complete."
+        '';
     in
     {
       # Pre-configured container system definitions
@@ -61,14 +90,9 @@
       };
 
       # Output packages including rootfs tarball for LXC / nspawn
-      packages = forAllSystems (system:
-        let
-          containerConfig = mkContainerConfig system;
-        in
-        {
-          tarball = containerConfig.config.system.build.tarball;
-          default = containerConfig.config.system.build.tarball;
-        }
-      );
+      packages = forAllSystems (system: {
+        tarball = mkTarball system;
+        default = mkTarball system;
+      });
     };
 }
