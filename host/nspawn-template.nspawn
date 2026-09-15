@@ -1,0 +1,22 @@
+# ==============================================================================
+# systemd-nspawn container settings for NixOS MAC Rotator Node
+# Placed under /etc/systemd/nspawn/<container-id>.nspawn
+# ==============================================================================
+
+[Exec]
+# Boot standard init (/init) as a system service
+Boot=yes
+
+# Retain network administration capabilities for dynamic MAC rotation & DHCP
+Capability=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
+
+# Ensure private users do not block network link state changes
+PrivateUsers=no
+
+[Network]
+# Attach container veth interface directly to isolated host bridge br0
+Bridge=br0
+
+[Files]
+# Keep storage persistent
+Volatile=no

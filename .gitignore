@@ -1,0 +1,14 @@
+# Nix build artifacts and symlinks
+result
+result-*
+.direnv
+.envrc
+
+# Temporary & Editor files
+*~
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
