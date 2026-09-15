@@ -12,3 +12,7 @@ result-*
 
 # Logs
 *.log
+
+# Artifacts and build dist
+dist/
+downloaded-artifact/
