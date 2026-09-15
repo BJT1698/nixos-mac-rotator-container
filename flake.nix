@@ -21,6 +21,7 @@
           {
             # Base Container Host & Network Identity
             networking.hostName = "nixos-container";
+            networking.useHostResolvConf = false;
 
             # Enable Automated Timed MAC Rotator
             services.macRotator = {

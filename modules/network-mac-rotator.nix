@@ -132,6 +132,7 @@ in
     networking = {
       useNetworkd = mkDefault true;
       useDHCP = mkDefault false;
+      useHostResolvConf = mkForce false;
     };
 
     systemd.network = {
